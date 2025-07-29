@@ -5,8 +5,9 @@ library(lastfmR)
 library(readr)
 
 # obtener ----
-# scrobbles <- get_scrobbles(user = "bastimapache")
-# artist_info <- get_library_info(user = "bastimapache")
+user <- "bastimapache"
+# scrobbles <- get_scrobbles(user = user)
+# artist_info <- get_library_info(user = user)
 
 # readr::write_rds(scrobbles, "~/Downloads/scrobbles.rds")
 # readr::write_rds(artist_info, "~/Downloads/artist_info.rds")
@@ -136,7 +137,7 @@ scrobbles_tags_5 |>
   guides(fill = guide_none(),
          color = guide_legend(title = NULL, override.aes = list(size = 3, alpha = 1))) +
   labs(title = "Géneros musicales más escuchados",
-       caption = "Last.fm/user/bastimapache") +
+       caption = paste0("Last.fm/user/", user)) +
   theme(plot.title = element_text(face = "bold", margin = margin(b = -10), hjust = 0),
         plot.caption = element_text(color = color_detalle, hjust = 1, size = 8, vjust = 0),
         plot.caption.position = "plot") +
