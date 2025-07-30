@@ -4,7 +4,11 @@ La idea era replicar en R el gráfico que parece para los usuarios de Last.fm Pr
 
 Post explicativo con pasos a seguir y código: https://bastianolea.rbind.io/blog/2025-07-28/
 
-![](lastfm_tags_bastimapache.png)
+![](gráficos/lastfm_tags_bastimapache.png)
+
+![](gráficos/lastfm_artists_bastimapache.png)
+
+![](gráficos/lastfm_weekly_bastimapache.png)
 
 Inspiración:
 

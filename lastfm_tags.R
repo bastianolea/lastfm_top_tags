@@ -144,4 +144,4 @@ scrobbles_tags_5 |>
   canvas(8, 5)
 
 # guardar
-# save_ggplot(plot = last_plot(), "lastfm_tags_bastimapache.png")
+save_ggplot(plot = last_plot(), "gráficos/lastfm_tags_bastimapache.png")
