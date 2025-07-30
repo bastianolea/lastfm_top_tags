@@ -1,4 +1,9 @@
 library(readr)
+library(dplyr)
+library(ggplot2)
+library(ggview)
+library(scales)
+library(stringr)
 
 # obtener ----
 user <- "bastimapache"
@@ -30,6 +35,16 @@ paleta <- c("#C490FF",
             "#165159",
             "#3262B8"
 )
+
+paleta_generos <- c(
+  "metal extremo" = "#5911AC",
+  "metal" = "#894BD2",
+  "noise" = "#223689",
+  "clásica" = "#165159",
+  "jazz" = "#4BB398",
+  "hardcore" = "#C490FF",
+  "rock" = "#3262B8",
+  "otros" = "#6D9187")
 
 theme_set(
   theme(panel.background = element_rect(color = color_fondo, fill = color_fondo),
@@ -193,25 +208,27 @@ scrobbles_rank_2 <- scrobbles_rank |>
          fecha = forcats::fct_reorder(fecha, date)) |> 
   # cortar artistas
   mutate(artist_label = str_trunc(artist, 30),
-         artist_label = str_wrap(artist_label, 18)) |> 
+         artist_label = str_wrap(artist_label, 16)) |> 
   # categorizar tags en grupos más generales
   mutate(tags2 = case_when(tags %in% c("metal", "post-metal","depressive black metal",
                                        "screamo", "nu metal", "progressive metal") ~ "metal",
-                           tags %in% c("brutal death metal", "death metal", 
-                                       "technical death metal", "black metal", "deathcore") ~ "metal extremo",
+                           tags %in% c("brutal death metal", "death metal", "slamming brutal death metal",
+                                       "technical death metal", "black metal", "deathcore", "deathgrind") ~ "metal extremo",
                            tags %in% c("grindcore", "hardcore") ~ "hardcore",
-                           tags %in% c("noise",  "sludge", "ambient", "drone", "power electronics") ~ "noise",
+                           tags %in% c("noise",  "noise rock", "sludge", "ambient", "drone", "power electronics") ~ "noise",
                            tags %in% c("piano", "classical") ~ "clásica",
                            tags %in% c("rock", "shoegaze", "post-punk", "classic rock", "progressive rock", "indie rock", "avant-garde") ~ "rock",
+                           tags %in% c("jazz") ~ "jazz",
                            is.na(tags) ~ "clásica",
                            tags %in% c("flute", "folk", "dream pop", "experimental") ~ "otros",
-                           .default = tags)) |> 
+                           .default = "otros")) |> 
   # ordenar géneros por frecuencia
   group_by(tags2) |> 
   mutate(tags_n = sum(n)) |> 
   ungroup() |> 
   mutate(tags2 = forcats::fct_reorder(tags2, tags_n)) |> 
   mutate(top = rank == 1)
+
 
 scrobbles_rank_2 |> 
   ggplot() +
@@ -226,15 +243,7 @@ scrobbles_rank_2 |>
                      breaks = 1:10) +
   scale_alpha_continuous(range = c(1, 0.3)) +
   # scale_linewidth_continuous(range = c(4, 0.1)) +
-  scale_fill_manual(values = c(
-    "metal extremo" = "#5911AC",
-    "metal" = "#894BD2",
-    "noise" = "#223689",
-    "clásica" = "#165159",
-    "jazz" = "#4BB398",
-    "hardcore" = "#C490FF",
-    "rock" = "#3262B8",
-    "otros" = "#6D9187")) +
+  scale_fill_manual(values = paleta_generos) +
   coord_cartesian(expand = FALSE) +
   guides(alpha = guide_none(),
          fill = guide_legend(position = "top", reverse = T, nrow = 1, title = NULL)) +
@@ -253,3 +262,120 @@ scrobbles_rank_2 |>
 
 # guardar
 save_ggplot(plot = last_plot(), "gráficos/lastfm_weekly_bastimapache.png")
+
+
+# alernativo ----
+
+# crear grupos que unan artistas que aparecen en semanas consecutivas,
+# porque de lo contrario aparecen sus líneas encima de otros artistas cuando desaparecen una semana
+scrobbles_rank_consecutivos <- scrobbles_rank_2 |> 
+  # completar observaciones para detectar cuando un artista NO sale en una semana
+  arrange(desc(date)) |> 
+  complete(date, artist) |> 
+  arrange(artist, date) |>
+  # por artista, marcar apariciones consecutivas y agruparlas
+  group_by(artist) |> 
+  # si el artista pareció la semana pasada, marcar como TRUE para mantener su línea
+  mutate(mantener = !is.na(rank) & !is.na(lag(rank)) | !is.na(rank) & !is.na(lead(rank))) |>
+  group_by(artist) |> 
+  # cada vez que deja de aparecer o vuelve a aparecer, cambiar el número
+  mutate(cambio = mantener != lag(mantener, default = first(mantener)),
+         grupo = cumsum(cambio)) |> 
+  # agrupar las apariciones consecutivas con un grupo de nombre único, y si deja de aparecer, NA, pero si vuelve a aparecer, agrupar como una aparición concesutiva con un nombre de grupo único
+  mutate(grupo = ifelse(mantener, paste(artist, grupo), NA)) |> 
+  filter(!is.na(grupo))
+  
+# posición de las fechas para generar líneas verticales
+pos_fechas <- seq_along(unique(scrobbles_rank_2$fecha))
+
+library(showtext)
+
+showtext_auto()
+font_add_google("IBM Plex Sans")
+showtext_opts(dpi = 300)
+
+# gráfico
+scrobbles_rank_2 |> 
+  ggplot() +
+  aes(fecha, rank, fill = tags2) +
+  geom_tile(linewidth = 0.3, color = color_fondo) +
+  # líneas verticales
+  annotate("segment",
+           x = c(0, pos_fechas, 10)-0.5, # considerando el cero y +1 al final
+           xend = c(0, pos_fechas, 10)-0.5,
+           y = 1-0.5, yend = 10+0.5,
+           linewidth = 6, color = color_fondo) +
+  # línea horizontal entre 1 y 2
+  annotate("segment", x = 0.5, xend = max(pos_fechas)+0.5,
+           y = 1+0.5, yend = 1+0.5,
+           linewidth = 2, color = color_fondo) +
+  # conectores entre columnas
+  geom_step(data = scrobbles_rank_consecutivos,
+            aes(group = grupo, color = tags2), # grupo especial que las corta si desaparecen una semana
+            direction = "mid",
+            position = position_dodge(width = 0.12), # movimiento lateral
+            size = 2.4, linewidth = 0.8, alpha = 1) +
+  # etiqueta de fondo al texto para tapar la línea conectora
+  geom_label(aes(label = artist_label,
+                 color = tags2,
+                fontface = ifelse(top, "bold", "plain")),
+            size = 2.4, lineheight = 0.9, label.size = 0, family = "IBM Plex Sans",
+            show.legend = FALSE) +
+  # # capa de degradado de transparencia sobre los recuadros
+  geom_tile(fill = color_fondo, aes(alpha = rank)) +
+  # texto sobre la transparencia para legibilidad
+  geom_text(aes(label = artist_label,
+                 fontface = ifelse(top, "bold", "plain"),
+                size = ifelse(top, 2.7, 2.4)), 
+            family = "IBM Plex Sans",
+             lineheight = 0.9, alpha = 0.8,
+             color = "white", show.legend = FALSE) +
+  # invertir escala vertical
+  scale_y_continuous(transform = "reverse",
+                     breaks = 2:10,
+                     expand = expansion(c(0, 0))) +
+  # # escala de transparencia al revés
+  scale_alpha_continuous(range = c(0, 0.8)) +
+  # tamaño de las letras definido condicionalmente en geom_text()
+  scale_size_identity() +
+  # relleno de recuadros
+  scale_fill_manual(values = paleta_generos,
+                    aesthetics = c("fill", "color")) +
+  # # punto destacado para la fila de top artistas
+  annotate("point", size = 8, x = 0.33, y = 1, color = color_texto) +
+  annotate("text", label = "1", size = 4, x = 0.33, y = 1, fontface = "bold", color = color_fondo) +
+  # cortar eje horizontal para que no se corra con el punto destacado fuera del área el gráfico
+  coord_cartesian(expand = TRUE, clip = "off",
+                  xlim = c(1, max(pos_fechas))) +
+  # leyendas
+  guides(alpha = guide_none(), color = guide_none(),
+         fill = guide_legend(position = "top", reverse = T, nrow = 1, title = NULL)) +
+  labs(title = "Artistas más escuchados por semana",
+       caption = paste0("Last.fm/user/", user)) +
+  # tema
+  theme(text = element_text(family = "IBM Plex Sans")) +
+  theme(axis.ticks = element_blank(),
+        panel.grid = element_blank()) +
+  theme(plot.title = element_text(face = "bold", margin = margin(b = 1), hjust = 0),
+        plot.caption = element_text(color = color_detalle, hjust = 1, size = 8),
+        plot.caption.position = "plot") +
+  theme(axis.text.y = element_text(face = "bold", hjust = 0.5, margin = margin(l = 2, r = -3)),
+        axis.text.x = element_text(colour = color_detalle, margin = margin(t = 4, b = 10), size = 9)) +
+  canvas(11, 6)
+
+save_ggplot(plot = last_plot(), "gráficos/lastfm_weekly_bastimapache_b.png")
+
+# install.packages("camcorder")
+# library(camcorder)
+# camcorder::gg_record(dir = "grabación",
+#                      width = 11, height = 6)
+
+# camcorder::gg_stop_recording()
+# camcorder::gg_stop_recording()
+# camcorder::gg_playback(#path = "grabación/")
+#                        #name = "grabación", 
+#   name = file.path(tempdir(), "recording", "vignette_gif.gif"),
+#                        height = 900,
+#                        last_image_duration = 30, loop = TRUE,
+#                        last_as_first = TRUE)
+# 

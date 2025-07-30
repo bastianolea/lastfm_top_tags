@@ -11,7 +11,7 @@ Post explicativo con pasos a seguir y código: https://bastianolea.rbind.io/blog
 
 ![](gráficos/lastfm_artists_bastimapache.png)
 
-![](gráficos/lastfm_weekly_bastimapache.png)
+![](gráficos/lastfm_weekly_bastimapache_b.png)
 
 ### Inspiración
 
