@@ -13,6 +13,8 @@ Post explicativo con pasos a seguir y código: https://bastianolea.rbind.io/blog
 
 ![](gráficos/lastfm_weekly_bastimapache_b.png)
 
+![](grabación/camcorder4.webp)
+
 ### Inspiración
 
 ![](inspo.png)
